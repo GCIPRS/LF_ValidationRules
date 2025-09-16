@@ -1,0 +1,117 @@
+# Regex
+
+This directory contains reusable regular expression patterns used by fields in
+`fields/` and referenced by formats in `formats/`. Patterns here are the
+canonical source for validation logic that is reused across multiple fields or
+domains.
+
+Use `regexRef` in field JSONs to reference these patterns, and keep tooltip and
+error messages consistent with the associated format or field.
+
+## Conventions
+
+- Prefer full-match patterns with explicit anchors: start `^` and end `$`.
+- Keep patterns readable; use non-capturing groups `(?:...)` when grouping
+  without back-references is sufficient.
+- Escape literal characters that have special meaning in regex: `. ^ $ * + ? ( ) [ ] { } | \`
+- When embedding regex into JSON, ensure proper escaping of backslashes: `\\`.
+- Document intended flags (e.g., case-insensitive `i`) explicitly as metadata
+  (`flags`) rather than relying on consumers to set them.
+- Provide representative valid/invalid examples.
+
+## Building blocks
+
+Common sub-patterns to compose larger expressions:
+
+- `DIGITS_ONLY`: `^[0-9]+$`
+- `ALPHA_ASCII`: `^[A-Za-z]+$`
+- `CAP_WORD`: `^[A-Z][a-z]+$`
+- `CAP_WORDS`: `^[A-Z][a-z]+(?: [A-Z][a-z]+)*$`
+- `COUNTRY_CODE`: `^\+\d{1,4}$`
+- `DATE_US_MMDDYYYY`: `^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$`
+- `US_SSN`: `^\d{3}-\d{2}-\d{4}$`
+- `CA_SIN`: `^\d{3} \d{3} \d{3}$`
+
+Where more permissive Unicode patterns are needed, define separate variants
+(`UNICODE_WORD`, `UNICODE_NAME`) to avoid breaking existing ASCII-only
+validations.
+
+## Canonical patterns
+
+### Digits only
+
+```regex
+^[0-9]+$
+```
+
+Use for numeric identifiers that must be positive integers (no signs or
+separators). Example fields: `missionaryId`, numeric codes.
+
+### Capitalized words (ASCII letters only)
+
+```regex
+^[A-Z][a-z]+(?: [A-Z][a-z]+)*$
+```
+
+Use for names and proper nouns where each word must be capitalized and limited
+to letters. For broader support (diacritics, hyphens, apostrophes), define and
+adopt a separate pattern.
+
+### Country calling code (+NNNN)
+
+```regex
+^\+\d{1,4}$
+```
+
+Use for the country calling code portion (not the full phone number).
+
+### US SSN (format only)
+
+```regex
+^\d{3}-\d{2}-\d{4}$
+```
+
+Enforces `###-##-####` formatting; does not validate issuance rules.
+
+### Canadian SIN (format only)
+
+```regex
+^\d{3} \d{3} \d{3}$
+```
+
+Enforces `NNN NNN NNN` formatting; consider Luhn validation in workflow.
+
+### Date (US) MM/DD/YYYY
+
+```regex
+^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$
+```
+
+Enforces two-digit month/day and four-digit year; calendar correctness (e.g.,
+leap years) should be validated in workflow if required.
+
+### eFile identifier (placeholder)
+
+Define the canonical eFile regex here when available and update fields that
+reference it. Track examples and failure cases.
+
+## Escaping and embedding
+
+- In JSON strings, backslashes must be escaped: `\\d{4}` instead of `\d{4}`.
+- In Markdown code fences, use the `regex` language tag (for readability only).
+- In SQL string literals, escape backslashes and quotes per database rules.
+
+## Testing and examples
+
+Include a minimal set of valid/invalid examples with each pattern and add edge
+cases that commonly cause confusion. When tightening patterns, update field
+examples and bump the field `version`.
+
+## When to use SQL validation
+
+Use regex for format checks and simple enumerations. Use SQL/workflow validation
+when:
+
+- Mapping display values to system codes
+- Enforcing referential integrity or uniqueness
+- Validating cross-field relationships or calendar correctness
